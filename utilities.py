@@ -56,19 +56,21 @@ def cube(n):
 
 # Primality test - return True if n is prime, False otherwise
 def isPrime(n):
-    if n < 2:
+    # first prime is 2, check for even to eliminate half the input
+    if n < 2 or (n > 2 and n % 2 == 0):
         return False
     # check the list of primes
-    if n in primesList:
+    if n == 2 or n in primesList:
         return True
-    # n is either composite and smaller than the largest prime in the primes list
-    # or n is a number greater than the greatest prime in the primes list
-    if n <= primesList[-1]:
-        i = 0
-        while primesList[i] <= n:
-            if n % primesList[i] == 0:
-                return False
-            i += 1
+    # if n is within the range of primesList, loop over the primes
+    # and see if any divide into n
+    if len(primesList) > 0:
+        if n < primesList[-1]:
+            for prime in primesList:
+                if prime > n:
+                    break
+                if n % prime == 0:
+                    return False
     else:
         # otherwise check over all odd numbers up to n
         for d in range(3, n, 2):
@@ -89,24 +91,15 @@ def isPrimeYesNo(n):
    if isPrime(n):
       return 2
    return 1
-
-# Return the number of primes that divide n
-def numberOfPrimeDivisors(n):
-   primes, multiplicities = factorize(n)
-   return len(primes)
-
-# Return the sum of the exponents of the prime factorization of n
-def multiplicityOfPrimes(n):
-   primes, multiplicities = factorize(n)
-   return sum(multiplicities)
-   
+ 
 # Factorize positive integer n into primes and corresponding multiplicities
 def factorize(n):
+    number = n
     if not n in factorizationMap.keys():
         primes = []
         multiplicities = []
         exponent = 0
-        if n < primesList[-1]:
+        if len(primesList) > 0 and n < primesList[-1]:
             # use the primes list
             primeRange = primesList
         else:
@@ -114,17 +107,15 @@ def factorize(n):
         for prime in primeRange:
             if prime > n:
                 break
-            saved = n
             while n % prime == 0:
                 n /= prime
                 exponent += 1
-            n = saved
             if exponent > 0:
                 primes.append(prime)
                 multiplicities.append(exponent)
                 exponent = 0
-        factorizationMap[n] = primes, multiplicities     
-    return factorizationMap[n]
+        factorizationMap[number] = primes, multiplicities     
+    return factorizationMap[number]
 
 # Compute the positive divisors of n
 def divisors(n):
@@ -134,39 +125,43 @@ def divisors(n):
 
 # Calculate Euler's totient function at n - this is the number of 
 # positive integers less than n which are relatively prime to n
-def eulerTotient(n):
-   primes, multiplicities = factorize(n)
-   num = reduce(mul, [(prime - 1) for prime in primes], 1)
+# From closed-form definition found on p. 145 of Burton
+def totient(n):
+   if not n in factorizationMap.keys():
+      factorize(n)
+   primes, multiplicities = factorizationMap[n]
+
+   num = reduce(mul, [prime - 1 for prime in primes], 1)
    den = reduce(mul, primes, 1)
    return n * num / den
 
-# Generate kth Jordan totient function - a generalization of Euler's
-def jordanTotient(k):
-   def jordanTotient_k(n):
-      primes, multiplicities = factorize(n)
-      num = reduce(mul, [(prime**k - 1) for prime in primes], 1)
-      den = reduce(mul, [prime**k for prime in primes], 1)
-      return n**k * num / den
-   return jordanTotient_k
+# Returns number of positive divisors of n
+def tau(n):
+   if not n in divisorsMap.keys():
+      divisors(n)
+   return len(divisorsMap[n])
 
-# Generate function which returns the sum of kth powers of the divisors of n
-# Note: sigma_k(n, 0) = tau(n), sigma_k(n, 1) = sigma(n)
-def sigma(k):
-   def sigma_k(n):
-      return sum([divisor**k for divisor in divisors(n)])
-   return sigma_k
+# Return the sum of the positive divisors of n
+def sigma(n):
+   if not n in divisorsMap.keys():
+      divisors(n)
+   return sum(divisorsMap[n])
 
 # Returns a function which is the Dirichlet convolution of f and g
 def dirichletConvolution(f, g):
     def convolution(n):
-        return sum([f(d)*g(n/d) for d in divisors(n)])
+        if not n in divisorsMap.keys():
+            divisors(n)
+        divisorsOfN = divisorsMap[n]
+        # d surely divides n and so n/d is an integer
+        return sum([f(d)*g(n/d) for d in divisorsOfN])
     return convolution
 
 # Returns a function which is the composition of f and g
 def compose(f, g):
-    def composition(n):
+    def composed(n):
         return f(g(n))
-    return composition
+    return composed
 
 # For computational efficiency, store the factorizations of numbers up to upperLimit in a 
 # global map built from a look-up table (text file) in project directory
